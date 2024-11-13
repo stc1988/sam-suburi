@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: sam-suburi
+Globals:
+  Function:
+    Timeout: 3
+Parameters:
+  System:
+    Type: String
+    Default: suburi
+    Description: System name
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - prd
+      - stg
+      - dev
+    Description: The environment for which the parameters are created.
+Resources:
+#=========================
+# Parameter Store
+#=========================
+  # Type: SecureStringは作成不可のため手動で作成する
+  # PsCrClientId:
+  #   Type: "AWS::SSM::Parameter"
+  #   Properties:
+  #     Name: !Sub "/${System}/${Environment}/client-id"
+  #     Description: "client id for cr. リソース作成後に手動で値を設定する"
+  #     Type: "SecureString"
+  #     Value: "initVal"
+  # PsCrSecret:
+  #   Type: "AWS::SSM::Parameter"
+  #   Properties:
+  #     Name: !Sub "/${System}/${Environment}/secret"
+  #     Description: "secret for cr. リソース作成後に手動で値を設定する"
+  #     Type: "SecureString"
+  #     Value: "initVal"
+  TokenParamter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${System}/${Environment}/token
+      Description: token for cr. 定期更新する
+      Type: String
+      Value: initVal
+    Metadata:
+      SamResourceId: TokenParamter
