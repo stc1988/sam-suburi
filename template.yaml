@@ -67,13 +67,32 @@ Resources:
 #=========================
 # Lambda Function
 #=========================
+  UpdateTokenFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${System}-${Environment}-update-token
+      CodeUri: src/lambda/update-token/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: 128
+      Timeout: 3
+      Environment:
+        Variables:
+          TOKEN_PARAM_NAME: !Ref TokenParamter
+          CLIENT_ID_PARAM_NAME: !Sub /${System}/${Environment}/client-id
+          SECRET_PARAM_NAME: !Sub /${System}/${Environment}/secret
   ClientStreamerFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub ${System}-${Environment}-client-streamer-function
-      Handler: index.handler
-      Runtime: nodejs18.x
+      FunctionName: !Sub ${System}-${Environment}-client-streamer
+      Handler: app.handler
+      Runtime: nodejs20.x
       Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: 128
+      Timeout: 3
       Code:
         ZipFile: |
           exports.handler = async (event) => {
@@ -101,6 +120,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
+                  - ssm:GetParameters
                   - ssm:PutParameter
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*"
         - PolicyName: KMSDecryptAccess
