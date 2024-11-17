@@ -4,6 +4,10 @@ Description: sam-suburi
 Globals:
   Function:
     Timeout: 3
+    MemorySize: 128
+#=========================
+# Parameter
+#=========================
 Parameters:
   System:
     Type: String
@@ -77,8 +81,6 @@ Resources:
       Architectures:
         - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
-      MemorySize: 128
-      Timeout: 3
       Environment:
         Variables:
           TOKEN_PARAM_NAME: !Ref TokenParamter
@@ -91,13 +93,36 @@ Resources:
       Handler: app.handler
       Runtime: nodejs20.x
       Role: !GetAtt LambdaExecutionRole.Arn
-      MemorySize: 128
-      Timeout: 3
+      Architectures:
+        - x86_64
       Code:
         ZipFile: |
           exports.handler = async (event) => {
             console.log("Event:", JSON.stringify(event, null, 2));
           };
+  NotificationApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${System}-${Environment}-notification-api
+      CodeUri: src/lambda/notification-api/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Role: !GetAtt LambdaExecutionRole.Arn
+  AppApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${System}-${Environment}-app-api
+      CodeUri: src/lambda/app-api/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Role: !GetAtt LambdaExecutionRole.Arn
+    Environment:
+      Variables:
+        TOKEN_PARAM_NAME: !Ref TokenParamter
 #=========================
 # Role
 #=========================
@@ -165,6 +190,24 @@ Resources:
                   - dynamodb:Scan
                   - dynamodb:Query
                 Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*"
+  LambdaSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "scheduler.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: InvokeLambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "lambda:InvokeFunction"
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*"
   ClientStreamerFunctionEventSourceMapping:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
@@ -179,3 +222,19 @@ Resources:
               {
                 "eventName": ["INSERT", "REMOVE"]
               }
+#=========================
+# Scheduler
+#=========================
+  UpdateTokenSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      ScheduleExpression: "rate(10 minutes)"
+      Target:
+        Arn: !GetAtt UpdateTokenFunction.Arn
+        RoleArn: !GetAtt LambdaSchedulerRole.Arn
+#=========================
+# API Gateway:notification
+#=========================
+
