@@ -110,6 +110,23 @@ Resources:
       Architectures:
         - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        ApiGet:
+          Type: Api
+          Properties:
+            Path: /items
+            Method: GET
+            RestApiId: !Ref MyRestApi
+            Auth:
+              ApiKeyRequired: true
+        ApiPost:
+          Type: Api
+          Properties:
+            Path: /news
+            Method: GET
+            RestApiId: !Ref MyRestApi
+            Auth:
+              ApiKeyRequired: true
   AppApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -235,6 +252,39 @@ Resources:
         Arn: !GetAtt UpdateTokenFunction.Arn
         RoleArn: !GetAtt LambdaSchedulerRole.Arn
 #=========================
-# API Gateway:notification
+# API Gateway
 #=========================
+  MyRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ${System}-${Environment}-api
+      StageName: !Sub ${Environment}
+      Auth:
+        ApiKeyRequired: false
+      #  DefaultAuthorizer: MyCognitoAuthorizer # デフォルトを Cognito に設定
+        # Authorizers:
+        #   MyCognitoAuthorizer:
+        #     UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      ApiStages:
+        - ApiId: !Ref MyRestApi
+          Stage: !Sub ${Environment}
+      UsagePlanName: !Sub ${System}-${Environment}-usage-plan
 
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub ${System}-${Environment}-api-key
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref MyRestApi
+          StageName: !Sub ${Environment}
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyType: API_KEY
+      KeyId: !Ref ApiKey
+      UsagePlanId: !Ref UsagePlan
