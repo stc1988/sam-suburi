@@ -6,6 +6,7 @@ const TOKEN_PARAM_NAME = process.env.TOKEN_PARAM_NAME;
 
 export const lambdaHandler = async (event, context) => {
 
+  console.log(event)
   const response = {
     statusCode: 200,
     body: JSON.stringify({
