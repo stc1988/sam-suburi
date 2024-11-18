@@ -21,6 +21,9 @@ Parameters:
       - stg
       - dev
     Description: The environment for which the parameters are created.
+  UpdateTokenInterval:
+    Type: String
+    Default: "10 hours"
 Resources:
 #=========================
 # Parameter Store
@@ -247,7 +250,8 @@ Resources:
     Properties:
       FlexibleTimeWindow:
         Mode: 'OFF'
-      ScheduleExpression: "rate(10 minutes)"
+      ScheduleExpression: !Sub "rate(${UpdateTokenInterval})"
+      State: 'DISABLED'
       Target:
         Arn: !GetAtt UpdateTokenFunction.Arn
         RoleArn: !GetAtt LambdaSchedulerRole.Arn
@@ -272,7 +276,9 @@ Resources:
         - ApiId: !Ref MyRestApi
           Stage: !Sub ${Environment}
       UsagePlanName: !Sub ${System}-${Environment}-usage-plan
-
+    DependsOn:
+      - MyRestApi
+      - MyRestApiStage
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
@@ -281,9 +287,14 @@ Resources:
       StageKeys:
         - RestApiId: !Ref MyRestApi
           StageName: !Sub ${Environment}
-
+    DependsOn:
+      - MyRestApi
+      - MyRestApiStage
   UsagePlanKey:
     Type: AWS::ApiGateway::UsagePlanKey
+    DependsOn:
+      - ApiKey
+      - UsagePlan
     Properties:
       KeyType: API_KEY
       KeyId: !Ref ApiKey
