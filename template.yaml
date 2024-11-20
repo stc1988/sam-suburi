@@ -60,11 +60,24 @@ Resources:
     Properties:
       TableName: !Sub ${System}-${Environment}-client
       AttributeDefinitions:
-        - AttributeName: id
+        - AttributeName: user_name
           AttributeType: S
+        - AttributeName: area_id
+          AttributeType: S
+        - AttributeName: ttl
+          AttributeType: N
       KeySchema:
-        - AttributeName: id
+        - AttributeName: user_name
           KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: TtlIndex
+          KeySchema:
+            - AttributeName: area_id
+              KeyType: HASH
+            - AttributeName: ttl
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       BillingMode: PAY_PER_REQUEST
       TimeToLiveSpecification:
         AttributeName: ttl
@@ -89,6 +102,19 @@ Resources:
           TOKEN_PARAM_NAME: !Ref TokenParamter
           CLIENT_ID_PARAM_NAME: !Sub /${System}/${Environment}/client-id
           SECRET_PARAM_NAME: !Sub /${System}/${Environment}/secret
+  DynamoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${System}-${Environment}-dynamo
+      CodeUri: src/lambda/dynamo/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          CLIENT_TABLE_NAME: !Ref ClientDynamoDBTable
   ClientStreamerFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -277,7 +303,6 @@ Resources:
           Stage: !Sub ${Environment}
       UsagePlanName: !Sub ${System}-${Environment}-usage-plan
     DependsOn:
-      - MyRestApi
       - MyRestApiStage
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
@@ -288,13 +313,9 @@ Resources:
         - RestApiId: !Ref MyRestApi
           StageName: !Sub ${Environment}
     DependsOn:
-      - MyRestApi
       - MyRestApiStage
   UsagePlanKey:
     Type: AWS::ApiGateway::UsagePlanKey
-    DependsOn:
-      - ApiKey
-      - UsagePlan
     Properties:
       KeyType: API_KEY
       KeyId: !Ref ApiKey
