@@ -24,6 +24,10 @@ Parameters:
   UpdateTokenInterval:
     Type: String
     Default: "10 hours"
+  IotEndpoint:
+    Type: String
+    Default: ""
+    Description: MQTT endpoint. set value after IoTThing created.
 Resources:
 #=========================
 # Parameter Store
@@ -136,6 +140,9 @@ Resources:
       Architectures:
         - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          MQTT_ENDPOINT: !Ref IotEndpoint
       Events:
         ApiPost:
           Type: Api
@@ -317,3 +324,11 @@ Resources:
       KeyType: API_KEY
       KeyId: !Ref ApiKey
       UsagePlanId: !Ref UsagePlan
+
+#=========================
+# IoT Core
+#=========================
+  IoTThing:
+    Type: "AWS::IoT::Thing"
+    Properties:
+      ThingName: !Sub ${System}-${Environment}-iotthing
