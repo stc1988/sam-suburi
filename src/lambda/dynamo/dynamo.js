@@ -24,7 +24,7 @@ export async function deleteItem(tableName, userName) {
   const result = await client.send(new DeleteCommand(params));
 }
 
-// TTLが一定以上(アクティブ)なレコードのuser_nameを抽出
+// TTLが一定以上(アクティブ)なアイテム(user_name, project_id)を抽出
 export async function queryUserNamesByMinTTL(tableName, areaId, minTTL) {
   const params = {
     TableName: tableName,
@@ -37,19 +37,20 @@ export async function queryUserNamesByMinTTL(tableName, areaId, minTTL) {
       ":areaId": areaId,
       ":minTTL": minTTL,
     },
-    ProjectionExpression: "user_name",
+    ProjectionExpression: "user_name, project_id",
   };
 
   const result = await client.send(new QueryCommand(params));
-  return result.Items.map((item) => item.user_name);
+  console.log(result.Items)
+  // return result.Items.map((item) => item.user_name);
 }
 
-// TTLが一定以下(悲アクティブ)なレコードのuser_nameを抽出
+// TTLが一定以下(悲アクティブ)なアイテムのuser_nameを抽出
 export async function queryUserNamesByMaxTTL(tableName, areaId, maxTTL) {
   const params = {
     TableName: tableName,
     IndexName: "TtlIndex",
-    KeyConditionExpression: "area_id = :areaId AND #ttl =< :maxTTL",
+    KeyConditionExpression: "area_id = :areaId AND #ttl <= :maxTTL",
     ExpressionAttributeNames: {
       "#ttl": "ttl",
     },

@@ -8,6 +8,6 @@
   "author": "SAM CLI",
   "license": "MIT",
   "dependencies": {
-    "@aws-sdk/client-ssm": "^3.693.0"
+    "@aws-sdk/client-iot-data-plane": "^3.699.0"
   }
 }

@@ -79,9 +79,6 @@ Resources:
           Projection:
             ProjectionType: ALL
       BillingMode: PAY_PER_REQUEST
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
 #=========================
@@ -140,18 +137,10 @@ Resources:
         - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
       Events:
-        ApiGet:
-          Type: Api
-          Properties:
-            Path: /items/{itemId}
-            Method: GET
-            RestApiId: !Ref MyRestApi
-            Auth:
-              ApiKeyRequired: true
         ApiPost:
           Type: Api
           Properties:
-            Path: /news
+            Path: /post/{topic}/{id}
             Method: POST
             RestApiId: !Ref MyRestApi
             Auth:
@@ -236,6 +225,14 @@ Resources:
                   - dynamodb:Scan
                   - dynamodb:Query
                 Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*"
+        - PolicyName: "IoTPublish"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "iot:Publish"
+                Resource: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/*"
   LambdaSchedulerRole:
     Type: AWS::IAM::Role
     Properties: 
