@@ -151,7 +151,13 @@ Resources:
             Method: POST
             RestApiId: !Ref MyRestApi
             Auth:
-              ApiKeyRequired: true
+              Authorizer: CognitoAuthorizer
+        ApiGet:
+          Type: Api
+          Properties:
+            Path: /get
+            Method: GET
+            RestApiId: !Ref MyRestApi
   AppApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -294,11 +300,9 @@ Resources:
       Name: !Sub ${System}-${Environment}-api
       StageName: !Sub ${Environment}
       Auth:
-        ApiKeyRequired: false
-      #  DefaultAuthorizer: MyCognitoAuthorizer # デフォルトを Cognito に設定
-        # Authorizers:
-        #   MyCognitoAuthorizer:
-        #     UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     Properties:
@@ -324,7 +328,6 @@ Resources:
       KeyType: API_KEY
       KeyId: !Ref ApiKey
       UsagePlanId: !Ref UsagePlan
-
 #=========================
 # IoT Core
 #=========================
@@ -332,81 +335,75 @@ Resources:
     Type: "AWS::IoT::Thing"
     Properties:
       ThingName: !Sub ${System}-${Environment}-iotthing
-# #=========================
-# # S3
-# #=========================
-#   AppS3Bucket:
-#     Type: AWS::S3::Bucket
-#     Properties:
-#       BucketName: my-cloudfront-oac-bucket
-#   AppBucketPolicy:
-#     Type: AWS::S3::BucketPolicy
-#     Properties:
-#       Bucket: !Ref AppS3Bucket
-#       PolicyDocument:
-#         Version: "2012-10-17"
-#         Statement:
-#           - Sid: AllowCloudFrontAccess
-#             Effect: Allow
-#             Principal:
-#               Service: cloudfront.amazonaws.com
-#             Action: "s3:GetObject"
-#             Resource: !Sub "${AppS3Bucket.Arn}/*"
-#             Condition:
-#               StringEquals:
-#                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${AppCloudFrontDistribution}"
-#   MyOAC:
-#     Type: AWS::CloudFront::OriginAccessControl
-#     Properties:
-#       OriginAccessControlConfig:
-#         Name: MyOAC
-#         Description: Origin Access Control for S3
-#         OriginAccessControlOriginType: s3
-#         SigningBehavior: always
-#         SigningProtocol: sigv4
-#   AppS3CachePolicy:
-#     Type: AWS::CloudFront::CachePolicy
-#     Properties:
-#       CachePolicyConfig:
-#         Name: S3RecommendedCachePolicy
-#         Comment: S3 recommended cache policy
-#         DefaultTTL: 86400
-#         MaxTTL: 31536000
-#         MinTTL: 0
-#         ParametersInCacheKeyAndForwardedToOrigin:
-#           EnableAcceptEncodingGzip: true
-#           EnableAcceptEncodingBrotli: true
-#           HeadersConfig:
-#             HeaderBehavior: none
-#           CookiesConfig:
-#             CookieBehavior: none
-#           QueryStringsConfig:
-#             QueryStringBehavior: none
 
-#   AppCloudFrontDistribution:
-#     Type: AWS::CloudFront::Distribution
-#     Properties:
-#       DistributionConfig:
-#         Comment: CloudFront with OAC and WAF
-#         Enabled: true
-#         DefaultCacheBehavior:
-#           TargetOriginId: MyS3Origin
-#           ViewerProtocolPolicy: redirect-to-https
-#           CachePolicyId: !Ref AppS3CachePolicy
-#         Origins:
-#           - Id: MyS3Origin
-#             DomainName: !GetAtt AppS3Bucket.RegionalDomainName
-#             OriginAccessControlId: !Ref MyOAC
-#             S3OriginConfig: {}
-#         WebACLId: ""
-#         ViewerCertificate:
-#           CloudFrontDefaultCertificate: true
-# #=========================
-# # Outputs
-# #=========================
-# Outputs:
-#   AppS3BucketDomainName:
-#     Value: !GetAtt AppS3Bucket.DomainName
-#   CloudFrontDistributionDomainName:
-#     Value: !GetAtt CloudFrontDistribution.DomainName
-#     Description: "CloudFront Distribution Domain Name"
+#=========================
+# Cognito
+#=========================
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${System}-${Environment}-user-pool
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: custom:attr1
+          AttributeDataType: String
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: 1
+            MaxLength: 5
+        - Name: custom:attr2
+          AttributeDataType: String
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: 1
+            MaxLength: 5
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName:  !Sub ${System}-${Environment}-user-pool-client
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - profile
+        - email
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - https://example.com/callback
+      LogoutURLs:
+        - https://example.com/logout
+      SupportedIdentityProviders:
+        - COGNITO
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub ${System}-${Environment}-auth
+      UserPoolId: !Ref UserPool
+
